@@ -114,7 +114,7 @@ void main(void)
 		printf("Create Success!\n");
 	}
 
-	cmt_result = R_CMT_CreatePeriodic(64, my_cmt_callback, &cmt_handle);
+	cmt_result = R_CMT_CreatePeriodic(48, my_cmt_callback, &cmt_handle);
 	if(true != cmt_result)
 	{
 		R_BSP_NOP();
@@ -234,7 +234,7 @@ void main(void)
 			}
 
 			cnt_us++;
-			if(cnt_us == 0x10)
+			if(cnt_us == 0x0C)
 			{
 				cnt_us = 0x00;
 				cnt_ms++;

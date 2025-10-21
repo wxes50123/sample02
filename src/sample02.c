@@ -45,7 +45,6 @@ static volatile bool transfer_busy = false;
 static bool verify_data(uint8_t * p_data_source, uint8_t * p_data_dest, uint16_t length);
 static uint8_t demo_data_source[DEMO_DATA_SIZE] = {0};
 static uint8_t demo_data_dest[DEMO_DATA_SIZE]   = {0};
-static uint8_t draw_data[384][64][3] = {0};
 static uint8_t spi_data[DEMO_DATA_SIZE] = {0};
 
 static rspi_command_word_t  my_rspi_command;
@@ -58,9 +57,12 @@ static uint8_t              version_str[12] = {0};
 
 static void initialize(void);
 static unsigned char read_sw(void);
+static unsigned char remainder(uint8_t data);
 static void write_led(unsigned char data);
 
+unsigned char state     = 0x00;
 unsigned char sw        = 0x00;
+unsigned char sw_prev   = 0x00;
 uint8_t       cnt_us    = 0x00;
 uint8_t       cnt_ms    = 0x00;
 uint16_t      cnt_col   = 0x00;
@@ -144,18 +146,20 @@ void main(void)
 
 	spi_init_oled();
 	//Draw Rectangle
+	/*
 	spi_data[0]  = 0x22;
 	spi_data[1]  = 0x00;
 	spi_data[2]  = 0x00;
 	spi_data[3]  = 0x5F;
 	spi_data[4]  = 0x3F;
-	spi_data[5]  = 0x6E;
-	spi_data[6]  = 0xB4;
-	spi_data[7]  = 0x32;
+	spi_data[5]  = 0xFF;
+	spi_data[6]  = 0xFF;
+	spi_data[7]  = 0xFF;
 	spi_data[8]  = 0x00;
-	spi_data[9]  = 0x6E;
-	spi_data[10] = 0x50;
+	spi_data[9]  = 0x00;
+	spi_data[10] = 0x00;
 	spi_write(11);
+	*/
 	//Set Column Address
 	spi_data[0]  = 0x15;
 	spi_data[1]  = 0x5F;
@@ -173,72 +177,46 @@ void main(void)
 		{
 			flag_copy = 0x00;
 			sw = read_sw();
-
-			if(cnt_ms % 8 == 0)
-			{
-				data_led = 0x01;
-			}
-			else if(cnt_ms % 8 == 1)
-			{
-				data_led = 0x02;
-			}
-			else if(cnt_ms % 8 == 2)
-			{
-				data_led = 0x04;
-			}
-			else if(cnt_ms % 8 == 3)
-			{
-				data_led = 0x08;
-			}
-			else if(cnt_ms % 8 == 4)
-			{
-				data_led = 0x10;
-			}
-			else if(cnt_ms % 8 == 5)
-			{
-				data_led = 0x20;
-			}
-			else if(cnt_ms % 8 == 6)
-			{
-				data_led = 0x40;
-			}
-			else if(cnt_ms % 8 == 7)
-			{
-				data_led = 0x80;
-			}
-			else
-			{
-				data_led = 0x00;
-			}
+			data_led = remainder(cnt_ms);
 			write_led(data_led);
 
-			PORT1.PODR.BIT.B5 = 0x00;
-			//Copy
-			spi_data[0] = 0x23;
-			spi_data[1] = 0x01;
-			spi_data[2] = 0x00;
-			spi_data[3] = 0x5F;
-			spi_data[4] = 0x3F;
-			spi_data[5] = 0x00;
-			spi_data[6] = 0x00;
-			spi_write(7);
-
-			PORT1.PODR.BIT.B5 = 0x01;
-			spi_init_data(cnt_col);
-			spi_write(128);
-
-			cnt_col++;
-			if(cnt_col == 384)
+			if(((sw & 0x01) == 0x00) && ((sw_prev & 0x01) == 0x01))
 			{
-				cnt_col = 0;
+				state ^= 0x01;
 			}
 
-			cnt_us++;
-			if(cnt_us == 0x0C)
+			if(1)
 			{
-				cnt_us = 0x00;
-				cnt_ms++;
+				PORT1.PODR.BIT.B5 = 0x00;
+				//Copy
+				spi_data[0] = 0x23;
+				spi_data[1] = 0x01;
+				spi_data[2] = 0x00;
+				spi_data[3] = 0x5F;
+				spi_data[4] = 0x3F;
+				spi_data[5] = 0x00;
+				spi_data[6] = 0x00;
+				spi_write(7);
+
+				PORT1.PODR.BIT.B5 = 0x01;
+				spi_init_data(cnt_col);
+				spi_write(128);
+
+				cnt_col++;
+				if(cnt_col == 384)
+				{
+					cnt_col = 0;
+				}
+
+				cnt_us++;
+				if(cnt_us == 0x0C)
+				{
+					cnt_us = 0x00;
+					cnt_ms++;
+				}
 			}
+
+			sw_prev = sw;
 		}
 	}
 
@@ -289,6 +267,7 @@ static void init_demo_data(void)
 		spi_data[i]         = 0x00;
 	}
 
+	/*
 	uint16_t j;
 	uint16_t k;
 	for(j = 0; j < 384; j++)
@@ -321,6 +300,7 @@ static void init_demo_data(void)
 			}
 		}
 	}
+	*/
 }
 
 static void tst_trap(void)
@@ -542,6 +522,47 @@ static void initialize(void)
 static unsigned char read_sw(void)
 {
 	return PORTB.PIDR.BYTE;
+}
+
+static unsigned char remainder(uint8_t data)
+{
+	if(data % 8 == 0)
+	{
+		return 0x01;
+	}
+	else if(data % 8 == 1)
+	{
+		return 0x02;
+	}
+	else if(data % 8 == 2)
+	{
+		return 0x04;
+	}
+	else if(data % 8 == 3)
+	{
+		return 0x08;
+	}
+	else if(data % 8 == 4)
+	{
+		return 0x10;
+	}
+	else if(data % 8 == 5)
+	{
+		return 0x20;
+	}
+	else if(data % 8 == 6)
+	{
+		return 0x40;
+	}
+	else if(data % 8 == 7)
+	{
+		return 0x80;
+	}
+	else
+	{
+		return 0x00;
+	}
+	return 0x00;
 }
 
 static void write_led(unsigned char data)
